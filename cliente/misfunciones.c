@@ -381,35 +381,32 @@ struct rcftp_msg construirMensajeRCFTP(char* datos, ssize_t recvsize, uint8_t ul
 /*  algoritmo 1 (basico)  */
 /**************************************************************************/
 void alg_basico(int socket, struct addrinfo *servinfo) {
+	printf("Comunicación con algoritmo básico\n");
 	uint8_t ultimoMensaje, ultimoMensajeConfirmado;
+    int seq;
 	char	datos[RCFTP_BUFLEN];
 	ssize_t recvsize;
-	struct rcftp_msg mensaje;
-	int seq;
-    struct rcftp_msg recvbuffer;
+	struct rcftp_msg recvbuffer, mensaje;
 	struct sockaddr_storage	remote;
 	socklen_t remotelen;
 
-	printf("Comunicación con algoritmo básico\n");
-	ultimoMensaje = 0;
-	ultimoMensajeConfirmado = 0;
 
-	recvsize = readtobuffer(datos, RCFTP_BUFLEN);
-
+    ultimoMensaje = 0;
+    ultimoMensajeConfirmado = 0;
+    recvsize = readtobuffer(datos, RCFTP_BUFLEN);
 	if(recvsize == 0){
 		ultimoMensaje = 1;
 	}
 
-	seq = 0;
+    seq = 0;
 	mensaje = construirMensajeRCFTP(datos, recvsize, ultimoMensaje, &seq);
-
-	while(ultimoMensajeConfirmado == 0){
+	
+	while(!ultimoMensajeConfirmado){
 		printf("Enviando mensaje\n");
 		enviarmensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
-		print_rcftp_msg(&mensaje, sizeof mensaje);
-		recibirmensaje(socket,&mensaje,sizeof(mensaje),&remote,&remotelen);
-
-        if(esMensajeValido(recvbuffer) && esLaRespuestaEsperada(recvbuffer, mensaje)){
+        print_rcftp_msg(&mensaje, sizeof mensaje);
+		recvsize=recibirmensaje(socket,&recvbuffer,sizeof(recvbuffer),&remote,&remotelen);
+		if(esMensajeValido(recvbuffer) && esLaRespuestaEsperada(recvbuffer, mensaje)){
             if(ultimoMensaje){
                 ultimoMensajeConfirmado = 1;
             }
