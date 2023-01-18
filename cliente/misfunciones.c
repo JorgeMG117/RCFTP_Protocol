@@ -28,6 +28,7 @@
 #include "multialarm.h" // Gestión de timeouts
 #include "vemision.h" // Gestión de ventana de emisión
 #include "misfunciones.h"
+#include <signal.h>
 
 /**************************************************************************/
 /* VARIABLES GLOBALES                                                     */
@@ -428,8 +429,64 @@ void alg_stopwait(int socket, struct addrinfo *servinfo) {
 
 	printf("Comunicación con algoritmo stop&wait\n");
 
-#warning FALTA IMPLEMENTAR EL ALGORITMO STOP-WAIT
-	printf("Algoritmo no implementado\n");
+    uint8_t ultimoMensaje, ultimoMensajeConfirmado, esperar;
+    int seq, timeouts_procesados, sockflags;
+	char	datos[RCFTP_BUFLEN];
+	ssize_t recvsize;
+	struct rcftp_msg recvbuffer, mensaje;
+	struct sockaddr_storage	remote;
+	socklen_t remotelen;
+
+    timeouts_procesados = 0;
+    ultimoMensaje = 0;
+    ultimoMensajeConfirmado = 0;
+    recvsize = readtobuffer(datos, RCFTP_BUFLEN);
+
+    sockflags = fcntl(socket, F_GETFL, 0);
+    fcntl(socket, F_SETFL, sockflags | O_NONBLOCK);
+
+    signal(14,handle_sigalrm);
+
+	if(recvsize == 0){
+		ultimoMensaje = 1;
+	}
+
+    seq = 0;
+	mensaje = construirMensajeRCFTP(datos, recvsize, ultimoMensaje, &seq);
+	
+	while(!ultimoMensajeConfirmado){
+		printf("Enviando mensaje\n");
+		enviarmensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
+        print_rcftp_msg(&mensaje, sizeof mensaje);
+		
+        addtimeout();
+        esperar = 1;
+        while(esperar){
+            recvsize=recibirmensaje(socket,&recvbuffer,sizeof(recvbuffer),&remote,&remotelen);
+            if(recvsize > 0){
+                canceltimeout();
+                esperar = 0;
+            }
+            if(timeouts_procesados != timeouts_vencidos){
+                esperar = 0;
+                timeouts_procesados = timeouts_procesados + 1;
+            }
+        }
+
+		if(recvsize > 0 && esMensajeValido(recvbuffer) && esLaRespuestaEsperada(recvbuffer, mensaje)){
+            if(ultimoMensaje){
+                ultimoMensajeConfirmado = 1;
+            }
+            else{
+                recvsize = readtobuffer(datos, RCFTP_BUFLEN);
+                if(recvsize == 0){
+                    ultimoMensaje = 1;
+                }
+                mensaje = construirMensajeRCFTP(datos, recvsize, ultimoMensaje, &seq);
+            }
+		}
+	}    
+
 }
 
 /**************************************************************************/
