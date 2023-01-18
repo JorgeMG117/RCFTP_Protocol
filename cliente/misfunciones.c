@@ -159,6 +159,7 @@ struct addrinfo* obtener_struct_direccion(char *dir_servidor, char *servicio, ch
     // devuelve la estructura de direcciones devuelta por getaddrinfo()
     return servinfo;
 }
+
 /**************************************************************************/
 /* Imprime una direccion */
 /**************************************************************************/
@@ -211,6 +212,7 @@ void printsockaddr(struct sockaddr_storage * saddr) {
         printf("\tPuerto (formato local): %d\n", port);
     }
 }
+
 /**************************************************************************/
 /* Configura el socket, devuelve el socket y servinfo */
 /**************************************************************************/
@@ -257,16 +259,23 @@ int initsocket(struct addrinfo *servinfo, char f_verbose){
 /**************************************************************************/
 /* Envía un mensaje a la dirección especificada */
 /**************************************************************************/
-void enviamensaje(int s, struct rcftp_msg sendbuffer, struct sockaddr * remote, socklen_t remotelen, unsigned int flags) {
+void enviarmensaje(int s, struct rcftp_msg sendbuffer, struct sockaddr * remote, socklen_t remotelen, unsigned int flags) {
 	ssize_t sentsize;
 
-	if ((sentsize=sendto(s,(char *)&sendbuffer,sizeof(sendbuffer),0,(struct sockaddr *)&remote,remotelen)) != sizeof(sendbuffer)) {
+	if ((sentsize=sendto(s,(char *)&sendbuffer,sizeof(sendbuffer),0,remote,remotelen)) != sizeof(sendbuffer)) {
 		if (sentsize!=-1)
 			fprintf(stderr,"Error: enviados %d bytes de un mensaje de %d bytes\n",(int)sentsize,(int)sizeof(sendbuffer));
 		else
 			perror("Error en sendto");
+		//exit(S_SYSERROR);
 	} 
-}
+
+	// print response if in verbose mode
+	/*if (flags & F_VERBOSE) {
+		printf("Mensaje RCFTP " ANSI_COLOR_MAGENTA "enviado" ANSI_COLOR_RESET ":\n");
+		print_rcftp_msg(&sendbuffer,sizeof(sendbuffer));
+	} */
+}	
 
 ssize_t recibirmensaje(int socket, struct rcftp_msg *buffer, int buflen, struct sockaddr_storage *remote, socklen_t *remotelen) {
 	ssize_t recvsize;
@@ -274,18 +283,20 @@ ssize_t recibirmensaje(int socket, struct rcftp_msg *buffer, int buflen, struct 
 	*remotelen = sizeof(*remote);
 	recvsize = recvfrom(socket,(char *)buffer,buflen,0,(struct sockaddr *)remote,remotelen);
 	if (recvsize<0 && errno!=EAGAIN) { // en caso de socket no bloqueante
+		//if (recvsize<0 && errno!=EINTR) { // en caso de socket bloqueante (no funciona en GNU/Linux)
 		perror("Error en recvfrom: ");
+		// exit(S_SYSERROR);
 	} else if (*remotelen>sizeof(*remote)) {
 		fprintf(stderr,"Error: la dirección del cliente ha sido truncada\n");
+		// exit(S_SYSERROR);
 	}
 	return recvsize;
 }
 
-
 /**************************************************************************/
 /* Verifica version,next,checksum */
 /**************************************************************************/
-int mensajevalido(struct rcftp_msg recvbuffer) { 
+int esMensajeValido(struct rcftp_msg recvbuffer) { 
 	int esperado=1;
 	//uint16_t aux;
 
@@ -293,10 +304,10 @@ int mensajevalido(struct rcftp_msg recvbuffer) {
 		esperado=0;
 		fprintf(stderr,"Error: recibido un mensaje con versión incorrecta\n");
 	}
-	if (recvbuffer.next!=0) { // next incorrecto
-		esperado=0;
-		fprintf(stderr,"Error: recibido un mensaje con NEXT incorrecto\n");
-	}
+	// if (recvbuffer.next!=0) { // next incorrecto
+	// 	esperado=0;
+	// 	fprintf(stderr,"Error: recibido un mensaje con NEXT incorrecto\n");
+	// }
 	if (issumvalid(&recvbuffer,sizeof(recvbuffer))==0) { // checksum incorrecto
 		esperado=0;
 		fprintf(stderr,"Error: recibido un mensaje con checksum incorrecto\n"); /* (esperaba ");
@@ -394,11 +405,11 @@ void alg_basico(int socket, struct addrinfo *servinfo) {
 
 	while(ultimoMensajeConfirmado == 0){
 		printf("Enviando mensaje\n");
-		enviamensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
+		enviarmensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
 		print_rcftp_msg(&mensaje, sizeof mensaje);
 		recibirmensaje(socket,&mensaje,sizeof(mensaje),&remote,&remotelen);
 
-        if(mensajevalido(recvbuffer) && esLaRespuestaEsperada(recvbuffer, mensaje)){
+        if(esMensajeValido(recvbuffer) && esLaRespuestaEsperada(recvbuffer, mensaje)){
             if(ultimoMensaje){
                 ultimoMensajeConfirmado = 1;
             }
