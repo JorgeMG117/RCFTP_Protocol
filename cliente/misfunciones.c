@@ -378,6 +378,30 @@ struct rcftp_msg construirMensajeRCFTP(char* datos, ssize_t recvsize, uint8_t ul
 	return sendbuffer;
 }
 
+
+int esRespuestaEsperadaGBN(struct rcftp_msg recvbuffer, struct rcftp_msg mensaje){
+    int esperado=1;
+    if(ntohl(recvbuffer.next) != (ntohl(mensaje.numseq) + ntohs(mensaje.len))){
+        esperado=0;
+
+        //printf("recvbuffer.next: %d\n", ntohl(recvbuffer.next));
+        //printf("mensaje.numseq: %d\n", ntohl(mensaje.numseq));
+        //printf("mensaje.len: %d\n", ntohs(mensaje.len));
+
+		fprintf(stderr,"Error: recvbuffer.next != mensaje.numseq + mensaje.len\n");
+    }
+    if(recvbuffer.flags == F_ABORT){
+        esperado=0;
+		fprintf(stderr,"Error: F_ABORT\n");
+    }
+    if(recvbuffer.flags == F_BUSY){
+        esperado=0;
+		fprintf(stderr,"Error: F_BUSY\n");
+    }
+    return esperado;
+}
+
+
 /**************************************************************************/
 /*  algoritmo 1 (basico)  */
 /**************************************************************************/
@@ -496,8 +520,74 @@ void alg_ventana(int socket, struct addrinfo *servinfo,int window) {
 
 	printf("Comunicación con algoritmo go-back-n\n");
 
-#warning FALTA IMPLEMENTAR EL ALGORITMO GO-BACK-N
-	printf("Algoritmo no implementado\n");
+    uint8_t ultimoMensaje, ultimoMensajeConfirmado, esperar, espacioLibreEnVentanaEmision, finDeFicheroNoAlcanzado;
+    int seq, timeouts_procesados, sockflags;
+	char	datos[RCFTP_BUFLEN];
+	ssize_t recvsize;
+	struct rcftp_msg recvbuffer, mensaje;
+	struct sockaddr_storage	remote;
+	socklen_t remotelen;
+
+    timeouts_procesados = 0;
+    ultimoMensaje = 0;
+    ultimoMensajeConfirmado = 0;
+
+    sockflags = fcntl(socket, F_GETFL, 0);
+    fcntl(socket, F_SETFL, sockflags | O_NONBLOCK);
+
+    setwindowsize(window);
+
+    signal(14,handle_sigalrm);
+
+    seq = 0;
+	
+	while(!ultimoMensajeConfirmado){
+
+        //Bloque de envio
+        if(getfreespace() > 0 && ultimoMensaje == 0){
+            recvsize = readtobuffer(datos, RCFTP_BUFLEN);
+            if(recvsize == 0){
+                ultimoMensaje = 1;
+            }
+
+	        mensaje = construirMensajeRCFTP(datos, recvsize, ultimoMensaje, &seq);
+            printf("Enviando mensaje\n");
+            enviarmensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
+            print_rcftp_msg(&mensaje, sizeof mensaje);
+
+            addtimeout();
+
+            addsentdatatowindow(datos, recvsize); 
+        }
+
+        //Bloque de recepcion
+        recvsize=recibirmensaje(socket,&recvbuffer,sizeof(recvbuffer),&remote,&remotelen);
+        if(recvsize > 0){
+            if(esMensajeValido(recvbuffer) && ){
+                canceltimeout();
+            }
+        }
+
+
+		
+        esperar = 1;
+        while(esperar){
+        }
+
+		if(recvsize > 0 && esMensajeValido(recvbuffer) && esLaRespuestaEsperada(recvbuffer, mensaje)){
+            if(ultimoMensaje){
+                ultimoMensajeConfirmado = 1;
+            }
+            else{
+                recvsize = readtobuffer(datos, RCFTP_BUFLEN);
+                if(recvsize == 0){
+                    ultimoMensaje = 1;
+                }
+                mensaje = construirMensajeRCFTP(datos, recvsize, ultimoMensaje, &seq);
+            }
+		}
+	}    
+
 }
 
 
