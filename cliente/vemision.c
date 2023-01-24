@@ -147,3 +147,11 @@ void printvemision() {
 		printf("[%d...(%d)...%d]",numseqfirst,numseqfirst+(totalelems+resendelem-firstelem)%totalelems,numseqfirst+(totalelems+lastelem-1-firstelem)%totalelems);
 	printf(" \t%d bytes libres\n",getfreespace());
 }
+
+uint32_t getnumseqfirst(){
+	return numseqfirst;
+}
+
+unsigned int gettotalelems(){
+	return totalelems;
+}
