@@ -33,7 +33,6 @@
 /**************************************************************************/
 /* VARIABLES GLOBALES                                                     */
 /**************************************************************************/
-#warning HAY QUE PONER EL NOMBRE (Y BORRAR EL WARNING)
 // elegir 1 o 2 autores y sustituir "Apellidos, Nombre" manteniendo el formato
 char* autores="Autor: Apellidos, Nombre"; // un solo autor
 //char* autores="Autor: Apellidos, Nombre\nAutor: Apellidos, Nombre" // dos autores
@@ -551,9 +550,9 @@ void alg_ventana(int socket, struct addrinfo *servinfo,int window) {
             }
             if(getfreespace() >= sendsize){
                 mensaje = construirMensajeRCFTP(datos, sendsize, ultimoMensaje, &seq);
-                printf("Enviando mensaje\n");
+                //printf("Enviando mensaje\n");
                 enviarmensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
-                print_rcftp_msg(&mensaje, sizeof mensaje);
+                //print_rcftp_msg(&mensaje, sizeof mensaje);
 
                 addtimeout();
 
@@ -565,24 +564,13 @@ void alg_ventana(int socket, struct addrinfo *servinfo,int window) {
             }
         }
 
-        /*
-        Si !ultimoMensaje
-            si enviado
-                leer
-            si hayEspacio 
-                construirMensajeRCFTP
-                enviado = 0
-
-        */
 
         //Bloque de recepcion
         recvsize=recibirmensaje(socket,&recvbuffer,sizeof(recvbuffer),&remote,&remotelen);
-        // printf("Mensaje recivido\n");
-        // print_rcftp_msg(&recvbuffer, sizeof recvbuffer);
         if(recvsize > 0){
             if(esMensajeValido(recvbuffer) && esRespuestaEsperadaGBN(recvbuffer, mensaje)){
-                printf("Mensaje recivido\n");
-                print_rcftp_msg(&recvbuffer, sizeof recvbuffer);
+                //printf("Mensaje recivido\n");
+                //print_rcftp_msg(&recvbuffer, sizeof recvbuffer);
                 
                 canceltimeout();
                 freewindow(ntohl(recvbuffer.next));
@@ -598,9 +586,9 @@ void alg_ventana(int socket, struct addrinfo *servinfo,int window) {
             tamanyo = RCFTP_BUFLEN;
             seq2 = getdatatoresend(datos, &tamanyo);
             mensaje = construirMensajeRCFTP(datos, tamanyo, ultimoMensaje, &seq2);
-            printf("Enviando mensaje\n");
+            //printf("Enviando mensaje\n");
             enviarmensaje(socket ,mensaje, servinfo->ai_addr, sizeof *servinfo, 0);
-            print_rcftp_msg(&mensaje, sizeof mensaje);
+            //print_rcftp_msg(&mensaje, sizeof mensaje);
 
             addtimeout();
             

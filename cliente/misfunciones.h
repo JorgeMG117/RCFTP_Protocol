@@ -3,7 +3,6 @@
 /* Plantilla $Revision$ */
 /* Autor: Apellidos, Nombre */
 /* Autor: Apellidos, Nombre (segundo autor, si existe) */
-#warning HAY QUE PONER EL NOMBRE (Y BORRAR EL WARNING)
 /****************************************************************************/
 
 /**
